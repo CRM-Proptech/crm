@@ -1,0 +1,255 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  SALES
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  UNQUALIFIED
+  CONVERTED
+}
+
+enum LeadSource {
+  WEBSITE
+  PORTAL
+  REFERRAL
+  WALK_IN
+  BROKER
+  CAMPAIGN
+  OTHER
+}
+
+enum OpportunityStage {
+  NEW
+  QUALIFIED
+  MATCHING
+  SITE_VISIT
+  NEGOTIATION
+  WON
+  LOST
+}
+
+enum UnitStatus {
+  AVAILABLE
+  HELD
+  BOOKED
+  SOLD
+}
+
+enum UnitType {
+  STUDIO
+  ONE_BHK
+  TWO_BHK
+  THREE_BHK
+  FOUR_BHK
+  PENTHOUSE
+  VILLA
+  PLOT
+}
+
+enum VisitStatus {
+  SCHEDULED
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+}
+
+enum MatchStatus {
+  SUGGESTED
+  SHORTLISTED
+  REJECTED
+  VISITED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(SALES)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignedLeads Lead[]
+  opportunities Opportunity[]
+  siteVisits    SiteVisit[]
+  activities    Activity[]
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String
+  city      String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads         Lead[]
+  requirements  BuyerRequirement[]
+  opportunities Opportunity[]
+  siteVisits    SiteVisit[]
+  activities    Activity[]
+
+  @@index([phone])
+  @@index([email])
+}
+
+model Lead {
+  id           String     @id @default(cuid())
+  customerId   String
+  customer     Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  source       LeadSource
+  status       LeadStatus @default(NEW)
+  assignedToId String?
+  assignedTo   User?      @relation(fields: [assignedToId], references: [id])
+  notes        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([status])
+  @@index([assignedToId])
+}
+
+model BuyerRequirement {
+  id           String   @id @default(cuid())
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  city         String
+  locality     String?
+  unitTypes    String
+  budgetMin    Int
+  budgetMax    Int
+  possessionBy String?
+  purpose      String?
+  notes        String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  matches PropertyMatch[]
+}
+
+model Developer {
+  id       String    @id @default(cuid())
+  name     String
+  city     String?
+  projects Project[]
+}
+
+model Project {
+  id          String    @id @default(cuid())
+  developerId String
+  developer   Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  name        String
+  city        String
+  locality    String
+  possession  String?
+  amenities   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  towers     Tower[]
+  siteVisits SiteVisit[]
+}
+
+model Tower {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  floors    Int
+
+  units Unit[]
+}
+
+model Unit {
+  id         String     @id @default(cuid())
+  towerId    String
+  tower      Tower      @relation(fields: [towerId], references: [id], onDelete: Cascade)
+  number     String
+  floor      Int
+  type       UnitType
+  carpetSqft Int
+  price      Int
+  status     UnitStatus @default(AVAILABLE)
+
+  matches       PropertyMatch[]
+  siteVisits    SiteVisit[]
+  opportunities Opportunity[]
+}
+
+model PropertyMatch {
+  id            String           @id @default(cuid())
+  requirementId String
+  requirement   BuyerRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  unitId        String
+  unit          Unit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  score         Int
+  reasons       String
+  status        MatchStatus      @default(SUGGESTED)
+  createdAt     DateTime         @default(now())
+
+  @@unique([requirementId, unitId])
+}
+
+model Opportunity {
+  id         String           @id @default(cuid())
+  customerId String
+  customer   Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  unitId     String?
+  unit       Unit?            @relation(fields: [unitId], references: [id])
+  ownerId    String
+  owner      User             @relation(fields: [ownerId], references: [id])
+  stage      OpportunityStage @default(NEW)
+  value      Int?
+  lostReason String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  siteVisits SiteVisit[]
+}
+
+model SiteVisit {
+  id            String       @id @default(cuid())
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+  projectId     String
+  project       Project      @relation(fields: [projectId], references: [id])
+  unitId        String?
+  unit          Unit?        @relation(fields: [unitId], references: [id])
+  scheduledAt   DateTime
+  status        VisitStatus  @default(SCHEDULED)
+  hostedById    String
+  hostedBy      User         @relation(fields: [hostedById], references: [id])
+  feedback      String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Activity {
+  id         String    @id @default(cuid())
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  type       String
+  message    String
+  createdAt  DateTime  @default(now())
+}
