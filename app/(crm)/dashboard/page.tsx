@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { LeadBadge, StageBadge, VisitBadge } from "@/components/status-badge";
-import { requireUser } from "@/lib/auth";
+import { canManageTeam, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDateTime, formatInr } from "@/lib/format";
 
@@ -21,6 +21,9 @@ export default async function DashboardPage() {
     recentActivity,
     leadCount,
     availableUnits,
+    openTasks,
+    pendingApprovals,
+    activeHolds,
   ] = await Promise.all([
     db.lead.findMany({
       where: { status: "NEW" },
@@ -61,6 +64,9 @@ export default async function DashboardPage() {
     }),
     db.lead.count({ where: { status: { in: ["NEW", "CONTACTED", "QUALIFIED"] } } }),
     db.unit.count({ where: { status: "AVAILABLE" } }),
+    db.task.count({ where: { status: "OPEN", assigneeId: canManageTeam(user.role) ? undefined : user.id } }),
+    db.offer.count({ where: { status: "PENDING" } }),
+    db.unitHold.count({ where: { status: "ACTIVE" } }),
   ]);
 
   return (
@@ -76,6 +82,9 @@ export default async function DashboardPage() {
         <Stat label="Units on the floor" value={availableUnits} href="/inventory" />
         <Stat label="High-fit matches" value={highFit.length} href="/matches" />
         <Stat label="In negotiation" value={likelyClose.length} href="/pipeline" />
+        <Stat label="Open tasks" value={openTasks} href="/tasks" />
+        {canManageTeam(user.role) ? <Stat label="Pending approvals" value={pendingApprovals} href="/pipeline" /> : null}
+        <Stat label="Active holds" value={activeHolds} href="/pipeline" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -133,7 +142,7 @@ export default async function DashboardPage() {
                 <li key={item.id}>
                   <p className="text-sm">{item.message}</p>
                   <p className="text-xs text-muted-foreground">
-                    {item.user.name} · {formatDateTime(item.createdAt)}
+                     {item.user?.name ?? "Keystone automation"} · {formatDateTime(item.createdAt)}
                   </p>
                 </li>
               ))}
