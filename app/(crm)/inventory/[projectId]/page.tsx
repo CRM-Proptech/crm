@@ -5,13 +5,13 @@ import { UnitBadge } from "@/components/status-badge";
 import { SubmitButton } from "@/components/submit-button";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
-import { requireUser } from "@/lib/auth";
+import { canManageTeam, requireUser } from "@/lib/auth";
 import { UNIT_STATUS_LABELS, UNIT_TYPE_LABELS } from "@/lib/constants";
 import { db } from "@/lib/db";
 import { formatInr } from "@/lib/format";
 
 export default async function ProjectPage({ params }: { params: Promise<{ projectId: string }> }) {
-  await requireUser();
+  const user = await requireUser();
   const { projectId } = await params;
 
   const project = await db.project.findUnique({
@@ -61,20 +61,20 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
                   <td className="px-4 py-3 tabular-nums">{unit.carpetSqft} sqft</td>
                   <td className="px-4 py-3 font-mono tabular-nums">{formatInr(unit.price)}</td>
                   <td className="px-4 py-3">
-                    <form action={updateUnitStatus} className="flex items-center gap-2">
-                      <input type="hidden" name="id" value={unit.id} />
+                    <div className="flex items-center gap-2">
                       <UnitBadge status={unit.status} />
-                      <Select name="status" defaultValue={unit.status} className="h-9 w-32">
-                        {Object.entries(UNIT_STATUS_LABELS).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </Select>
-                      <SubmitButton variant="ghost" pendingLabel="…">
-                        Set
-                      </SubmitButton>
-                    </form>
+                      {canManageTeam(user.role) && unit.status !== "HELD" ? (
+                        <form action={updateUnitStatus} className="flex items-center gap-2">
+                          <input type="hidden" name="id" value={unit.id} />
+                          <Select name="status" defaultValue={unit.status} className="h-9 w-32">
+                            {Object.entries(UNIT_STATUS_LABELS).filter(([value]) => value !== "HELD").map(([value, label]) => (
+                              <option key={value} value={value}>{label}</option>
+                            ))}
+                          </Select>
+                          <SubmitButton variant="ghost" pendingLabel="…">Set</SubmitButton>
+                        </form>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

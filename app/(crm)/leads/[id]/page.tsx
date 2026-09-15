@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 import { LinkButton } from "@/components/ui/link-button";
-import { requireUser } from "@/lib/auth";
+import { canManageTeam, requireUser } from "@/lib/auth";
 import { LEAD_SOURCE_LABELS, LEAD_STATUS_LABELS } from "@/lib/constants";
 import { db } from "@/lib/db";
 import { formatDate, formatPhone } from "@/lib/format";
@@ -20,7 +20,7 @@ export default async function LeadDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ merged?: string }>;
 }) {
-  await requireUser();
+  const actor = await requireUser();
   const { id } = await params;
   const { merged } = await searchParams;
 
@@ -29,7 +29,7 @@ export default async function LeadDetailPage({
       where: { id },
       include: { customer: { include: { leads: true, requirements: true } }, assignedTo: true },
     }),
-    db.user.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    db.user.findMany({ where: { active: true, role: "SALES" }, orderBy: { name: "asc" } }),
   ]);
 
   if (!lead) notFound();
@@ -95,11 +95,10 @@ export default async function LeadDetailPage({
             </Field>
             <SubmitButton pendingLabel="Updating…">Update status</SubmitButton>
           </form>
-          <form action={assignLead} className="space-y-3">
+          {canManageTeam(actor.role) ? <form action={assignLead} className="space-y-3">
             <input type="hidden" name="id" value={lead.id} />
             <Field label="Owner" htmlFor="assignedToId">
               <Select id="assignedToId" name="assignedToId" defaultValue={lead.assignedToId ?? ""}>
-                <option value="">Unassigned</option>
                 {users.map((user) => (
                   <option key={user.id} value={user.id}>
                     {user.name}
@@ -110,7 +109,7 @@ export default async function LeadDetailPage({
             <SubmitButton variant="outline" pendingLabel="Assigning…">
               Assign
             </SubmitButton>
-          </form>
+          </form> : null}
           {lead.customer.requirements.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No requirement yet.{" "}
