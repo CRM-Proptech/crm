@@ -73,6 +73,33 @@ enum MatchStatus {
   VISITED
 }
 
+enum TaskStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskType {
+  FIRST_CONTACT
+  FOLLOW_UP
+  SLA_ESCALATION
+  GENERAL
+}
+
+enum OfferStatus {
+  AUTO_APPROVED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum HoldStatus {
+  ACTIVE
+  RELEASED
+  EXPIRED
+  CONVERTED
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -83,10 +110,17 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  assignedLeads Lead[]
-  opportunities Opportunity[]
-  siteVisits    SiteVisit[]
-  activities    Activity[]
+  assignedLeads  Lead[]
+  opportunities  Opportunity[]
+  siteVisits     SiteVisit[]
+  activities     Activity[]
+  ownedCustomers Customer[]
+  tasks          Task[]         @relation("TaskAssignee")
+  createdTasks   Task[]         @relation("TaskCreator")
+  notifications  Notification[]
+  offersCreated  Offer[]        @relation("OfferCreator")
+  offersDecided  Offer[]        @relation("OfferDecider")
+  holdsCreated   UnitHold[]
 }
 
 model Customer {
@@ -98,15 +132,20 @@ model Customer {
   notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  ownerId   String?
+  owner     User?    @relation(fields: [ownerId], references: [id])
 
   leads         Lead[]
   requirements  BuyerRequirement[]
   opportunities Opportunity[]
   siteVisits    SiteVisit[]
   activities    Activity[]
+  tasks         Task[]
+  notifications Notification[]
 
   @@index([phone])
   @@index([email])
+  @@index([ownerId])
 }
 
 model Lead {
@@ -191,6 +230,7 @@ model Unit {
   matches       PropertyMatch[]
   siteVisits    SiteVisit[]
   opportunities Opportunity[]
+  holds         UnitHold[]
 }
 
 model PropertyMatch {
@@ -222,6 +262,8 @@ model Opportunity {
   updatedAt  DateTime         @updatedAt
 
   siteVisits SiteVisit[]
+  offers     Offer[]
+  holds      UnitHold[]
 }
 
 model SiteVisit {
@@ -241,15 +283,107 @@ model SiteVisit {
   feedback      String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+
+  followUpTask Task?
 }
 
 model Activity {
   id         String    @id @default(cuid())
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id])
-  userId     String
-  user       User      @relation(fields: [userId], references: [id])
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id])
   type       String
   message    String
+  eventKey   String?   @unique
   createdAt  DateTime  @default(now())
+}
+
+model RoutingState {
+  id                 String   @id @default("sales")
+  lastAssignedUserId String?
+  updatedAt          DateTime @updatedAt
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  type        TaskType   @default(GENERAL)
+  status      TaskStatus @default(OPEN)
+  dueAt       DateTime
+  assigneeId  String
+  assignee    User       @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdById String?
+  createdBy   User?      @relation("TaskCreator", fields: [createdById], references: [id])
+  customerId  String?
+  customer    Customer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  siteVisitId String?    @unique
+  siteVisit   SiteVisit? @relation(fields: [siteVisitId], references: [id], onDelete: Cascade)
+  completedAt DateTime?
+  cancelledAt DateTime?
+  escalatedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([assigneeId, status, dueAt])
+}
+
+model Notification {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type       String
+  title      String
+  message    String
+  href       String?
+  eventKey   String    @unique
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, readAt, createdAt])
+}
+
+model Offer {
+  id            String      @id @default(cuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  listPrice     Int
+  offeredPrice  Int
+  discountBps   Int
+  status        OfferStatus
+  notes         String?
+  createdById   String
+  createdBy     User        @relation("OfferCreator", fields: [createdById], references: [id])
+  decidedById   String?
+  decidedBy     User?       @relation("OfferDecider", fields: [decidedById], references: [id])
+  decidedAt     DateTime?
+  decisionNotes String?
+  createdAt     DateTime    @default(now())
+
+  @@index([opportunityId, createdAt])
+  @@index([status])
+}
+
+model UnitHold {
+  id                   String      @id @default(cuid())
+  opportunityId        String
+  opportunity          Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  unitId               String
+  unit                 Unit        @relation(fields: [unitId], references: [id])
+  status               HoldStatus  @default(ACTIVE)
+  expiresAt            DateTime
+  createdById          String
+  createdBy            User        @relation(fields: [createdById], references: [id])
+  releasedAt           DateTime?
+  releaseReason        String?
+  activeUnitKey        String?     @unique
+  activeOpportunityKey String?     @unique
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  @@index([status, expiresAt])
+  @@index([opportunityId, createdAt])
 }

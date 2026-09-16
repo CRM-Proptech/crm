@@ -14,6 +14,10 @@ import { scoreUnit } from "../lib/matching";
 const db = new PrismaClient();
 
 async function main() {
+  await db.notification.deleteMany();
+  await db.task.deleteMany();
+  await db.offer.deleteMany();
+  await db.unitHold.deleteMany();
   await db.propertyMatch.deleteMany();
   await db.siteVisit.deleteMany();
   await db.opportunity.deleteMany();
@@ -26,6 +30,7 @@ async function main() {
   await db.developer.deleteMany();
   await db.customer.deleteMany();
   await db.user.deleteMany();
+  await db.routingState.deleteMany();
 
   const passwordHash = await bcrypt.hash("keystone", 10);
 
@@ -132,8 +137,8 @@ async function main() {
 
   const units = [
     { id: "u1", towerId: towerA.id, number: "1203", floor: 12, type: UnitType.TWO_BHK, carpetSqft: 842, price: 3_40_00_000, status: UnitStatus.AVAILABLE },
-    { id: "u2", towerId: towerA.id, number: "1801", floor: 18, type: UnitType.THREE_BHK, carpetSqft: 1180, price: 4_85_00_000, status: UnitStatus.AVAILABLE },
-    { id: "u3", towerId: towerA.id, number: "2104", floor: 21, type: UnitType.THREE_BHK, carpetSqft: 1210, price: 5_10_00_000, status: UnitStatus.HELD },
+    { id: "u2", towerId: towerA.id, number: "1801", floor: 18, type: UnitType.THREE_BHK, carpetSqft: 1180, price: 4_85_00_000, status: UnitStatus.HELD },
+    { id: "u3", towerId: towerA.id, number: "2104", floor: 21, type: UnitType.THREE_BHK, carpetSqft: 1210, price: 5_10_00_000, status: UnitStatus.AVAILABLE },
     { id: "u4", towerId: towerA.id, number: "0702", floor: 7, type: UnitType.TWO_BHK, carpetSqft: 810, price: 3_15_00_000, status: UnitStatus.SOLD },
     { id: "u5", towerId: towerB.id, number: "3301", floor: 33, type: UnitType.FOUR_BHK, carpetSqft: 1860, price: 9_40_00_000, status: UnitStatus.AVAILABLE },
     { id: "u6", towerId: towerB.id, number: "1408", floor: 14, type: UnitType.THREE_BHK, carpetSqft: 1420, price: 7_20_00_000, status: UnitStatus.AVAILABLE },
@@ -142,7 +147,7 @@ async function main() {
     { id: "u9", towerId: grove1.id, number: "0306", floor: 3, type: UnitType.ONE_BHK, carpetSqft: 640, price: 92_00_000, status: UnitStatus.BOOKED },
     { id: "u10", towerId: river1.id, number: "0901", floor: 9, type: UnitType.TWO_BHK, carpetSqft: 980, price: 1_18_00_000, status: UnitStatus.AVAILABLE },
     { id: "u11", towerId: river1.id, number: "1603", floor: 16, type: UnitType.THREE_BHK, carpetSqft: 1360, price: 1_56_00_000, status: UnitStatus.AVAILABLE },
-    { id: "u12", towerId: river1.id, number: "0205", floor: 2, type: UnitType.TWO_BHK, carpetSqft: 940, price: 1_08_00_000, status: UnitStatus.HELD },
+    { id: "u12", towerId: river1.id, number: "0205", floor: 2, type: UnitType.TWO_BHK, carpetSqft: 940, price: 1_08_00_000, status: UnitStatus.AVAILABLE },
   ];
 
   for (const unit of units) {
@@ -157,6 +162,7 @@ async function main() {
       email: "rohan.kapoor@example.com",
       city: "Mumbai",
       notes: "End-use, wants school access and a high floor.",
+      ownerId: arjun.id,
     },
   });
   const neha = await db.customer.create({
@@ -166,6 +172,7 @@ async function main() {
       phone: "919822233344",
       email: "neha.k@example.com",
       city: "Pune",
+      ownerId: meera.id,
     },
   });
   const kabir = await db.customer.create({
@@ -175,6 +182,7 @@ async function main() {
       phone: "919845566778",
       email: "kabir.menon@example.com",
       city: "Bengaluru",
+      ownerId: meera.id,
     },
   });
   const isha = await db.customer.create({
@@ -184,6 +192,7 @@ async function main() {
       phone: "919811122233",
       email: "isha.b@example.com",
       city: "Mumbai",
+      ownerId: arjun.id,
     },
   });
   const sameer = await db.customer.create({
@@ -192,6 +201,7 @@ async function main() {
       name: "Sameer Desai",
       phone: "919900112233",
       city: "Mumbai",
+      ownerId: arjun.id,
     },
   });
 
@@ -301,6 +311,14 @@ async function main() {
     ],
   });
 
+  const holdExpiry = new Date(Date.now() + 36 * 60 * 60 * 1000);
+  await db.unitHold.create({ data: { id: "hold-rohan", opportunityId: "opp-rohan", unitId: "u2", status: "ACTIVE", expiresAt: holdExpiry, createdById: arjun.id, activeUnitKey: "u2", activeOpportunityKey: "opp-rohan" } });
+  await db.offer.createMany({ data: [
+    { id: "offer-rohan-auto", opportunityId: "opp-rohan", listPrice: 4_85_00_000, offeredPrice: 4_70_00_000, discountBps: 309, status: "AUTO_APPROVED", createdById: arjun.id, notes: "Initial buyer offer" },
+    { id: "offer-rohan-pending", opportunityId: "opp-rohan", listPrice: 4_85_00_000, offeredPrice: 4_50_00_000, discountBps: 722, status: "PENDING", createdById: arjun.id, notes: "Buyer requested a final close price" },
+  ] });
+  await db.routingState.create({ data: { id: "sales", lastAssignedUserId: arjun.id } });
+
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(11, 0, 0, 0);
@@ -311,6 +329,7 @@ async function main() {
   await db.siteVisit.createMany({
     data: [
       {
+        id: "visit-neha-upcoming",
         customerId: neha.id,
         opportunityId: "opp-neha",
         projectId: riverline.id,
@@ -320,6 +339,7 @@ async function main() {
         status: VisitStatus.SCHEDULED,
       },
       {
+        id: "visit-rohan-completed",
         customerId: rohan.id,
         opportunityId: "opp-rohan",
         projectId: meridian.id,
@@ -332,6 +352,18 @@ async function main() {
     ],
   });
 
+  const firstContactDue = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  const followUpDue = new Date(Date.now() + 18 * 60 * 60 * 1000);
+  await db.task.createMany({ data: [
+    { title: "First contact: Isha Banerjee", type: "FIRST_CONTACT", dueAt: firstContactDue, assigneeId: arjun.id, createdById: ananya.id, customerId: isha.id },
+    { title: "Follow up after visit: Rohan Kapoor", type: "FOLLOW_UP", dueAt: followUpDue, assigneeId: arjun.id, createdById: arjun.id, customerId: rohan.id, siteVisitId: "visit-rohan-completed" },
+  ] });
+  await db.notification.createMany({ data: [
+    { userId: arjun.id, customerId: isha.id, type: "lead.assigned", title: "New lead assigned", message: "Isha Banerjee was routed to you.", href: "/leads/lead-5", eventKey: "seed:lead-5" },
+    { userId: vikram.id, customerId: rohan.id, type: "offer.approval", title: "Discount approval required", message: "Rohan Kapoor: 7.22% discount requested by Arjun Mehta.", href: "/pipeline/opp-rohan", eventKey: "seed:offer-rohan-pending:vikram" },
+    { userId: ananya.id, customerId: rohan.id, type: "offer.approval", title: "Discount approval required", message: "Rohan Kapoor: 7.22% discount requested by Arjun Mehta.", href: "/pipeline/opp-rohan", eventKey: "seed:offer-rohan-pending:ananya" },
+  ] });
+
   await db.activity.createMany({
     data: [
       { userId: arjun.id, customerId: rohan.id, type: "lead.created", message: "Website lead captured for Rohan Kapoor" },
@@ -342,7 +374,7 @@ async function main() {
     ],
   });
 
-  console.log("Seeded Keystone Phase 1. Sign in as ananya@keystone.local / keystone");
+  console.log("Seeded Keystone Phase 2. Sign in as ananya@keystone.local / keystone");
 }
 
 main()

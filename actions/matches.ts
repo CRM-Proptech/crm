@@ -1,22 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { MatchStatus } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { matchUpdateSchema } from "@/lib/validators";
 
 export async function updateMatchStatus(formData: FormData) {
-  await requireUser();
-  const id = String(formData.get("id") ?? "");
-  const status = String(formData.get("status") ?? "") as MatchStatus;
+  const user = await requireUser();
+  const parsed = matchUpdateSchema.safeParse({ id: formData.get("id"), status: formData.get("status") });
+  if (!parsed.success) throw new Error("Invalid match update");
 
   const match = await db.propertyMatch.update({
-    where: { id },
-    data: { status },
+    where: { id: parsed.data.id },
+    data: { status: parsed.data.status },
     include: { requirement: true, unit: true },
   });
 
-  if (status === "SHORTLISTED") {
+  if (parsed.data.status === "SHORTLISTED") {
     await db.opportunity.updateMany({
       where: {
         customerId: match.requirement.customerId,
@@ -29,6 +29,7 @@ export async function updateMatchStatus(formData: FormData) {
       },
     });
   }
+  await db.activity.create({ data: { userId: user.id, customerId: match.requirement.customerId, type: "match.updated", message: `Unit ${match.unit.number} marked ${parsed.data.status.toLowerCase()}` } });
 
   revalidatePath("/matches");
   revalidatePath("/pipeline");

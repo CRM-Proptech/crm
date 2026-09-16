@@ -4,6 +4,8 @@ import {
   CalendarCheck,
   GitBranch,
   LayoutDashboard,
+  Bell,
+  ListChecks,
   Sparkles,
   UserRound,
   Users,
@@ -23,14 +25,17 @@ const links = [
   { href: "/inventory", label: "Inventory", icon: Building2 },
   { href: "/matches", label: "Matches", icon: Sparkles },
   { href: "/visits", label: "Site visits", icon: CalendarCheck },
+  { href: "/tasks", label: "Tasks", icon: ListChecks },
 ];
 
 export function AppShell({
   user,
   children,
+  unreadNotifications,
 }: {
   user: SessionUser;
   children: React.ReactNode;
+  unreadNotifications: number;
 }) {
   const nav = (
     <>
@@ -56,6 +61,9 @@ export function AppShell({
           Team
         </Link>
       ) : null}
+      <Link href="/notifications" className="flex min-h-10 shrink-0 items-center gap-2 rounded-md px-2 text-sm text-sidebar-foreground/90 transition-colors duration-150 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Bell className="size-4" aria-hidden="true" /> Notifications{unreadNotifications ? ` (${unreadNotifications})` : ""}
+      </Link>
     </>
   );
 

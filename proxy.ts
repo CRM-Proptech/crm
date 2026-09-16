@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/constants";
 
-const publicPaths = ["/login"];
+// Scheduled jobs authenticate with their own bearer secret in the route handler.
+const publicPaths = ["/login", "/api/jobs/sales-ops"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

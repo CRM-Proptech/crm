@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { moveOpportunity } from "@/actions/pipeline";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -16,6 +17,7 @@ export default async function PipelinePage() {
       customer: true,
       owner: true,
       unit: { include: { tower: { include: { project: true } } } },
+      _count: { select: { offers: { where: { status: "PENDING" } }, holds: { where: { status: "ACTIVE" } } } },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -46,7 +48,7 @@ export default async function PipelinePage() {
                 <div className="space-y-3">
                   {cards.map((opp) => (
                     <Card key={opp.id} className="p-4">
-                      <p className="font-medium">{opp.customer.name}</p>
+                      <Link href={`/pipeline/${opp.id}`} className="font-medium hover:underline">{opp.customer.name}</Link>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {opp.unit
                           ? `${opp.unit.tower.project.name} ${opp.unit.number}`
@@ -56,6 +58,8 @@ export default async function PipelinePage() {
                         {opp.value ? formatInr(opp.value) : "—"}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">{opp.owner.name}</p>
+                      {opp._count.offers ? <p className="mt-2 text-xs font-medium text-warning">Approval pending</p> : null}
+                      {opp._count.holds ? <p className="mt-1 text-xs font-medium text-primary">Active unit hold</p> : null}
                       <form action={moveOpportunity} className="mt-3 space-y-2">
                         <input type="hidden" name="id" value={opp.id} />
                         <label htmlFor={`stage-${opp.id}`} className="sr-only">

@@ -10,7 +10,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CITIES, LEAD_SOURCE_LABELS } from "@/lib/constants";
 
-export function LeadForm({ users }: { users: { id: string; name: string }[] }) {
+export function LeadForm() {
   const [state, action] = useActionState(createLead, {});
 
   return (
@@ -47,15 +47,7 @@ export function LeadForm({ users }: { users: { id: string; name: string }[] }) {
           </Select>
         </Field>
       </div>
-      <Field label="Assign to" htmlFor="assignedToId">
-        <Select id="assignedToId" name="assignedToId" defaultValue={users[0]?.id}>
-          {users.map((user) => (
-            <option key={user.id} value={user.id}>
-              {user.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
+      <p className="text-sm text-muted-foreground">Owner is selected automatically using sticky round-robin routing.</p>
       <Field label="Notes" htmlFor="notes">
         <Textarea id="notes" name="notes" placeholder="Looking at 3 BHK in Bandra, budget around 4 Cr" />
       </Field>

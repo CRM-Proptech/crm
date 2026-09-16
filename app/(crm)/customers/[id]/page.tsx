@@ -27,7 +27,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       requirements: { include: { matches: { include: { unit: { include: { tower: { include: { project: true } } } } } } } },
       opportunities: { include: { owner: true, unit: true }, orderBy: { updatedAt: "desc" } },
       siteVisits: { include: { project: true }, orderBy: { scheduledAt: "desc" } },
-      activities: { include: { user: true }, orderBy: { createdAt: "desc" }, take: 8 },
+      activities: { include: { user: true }, orderBy: { createdAt: "desc" } },
     },
   });
 
@@ -75,7 +75,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                 <li key={item.id}>
                   <p className="text-sm">{item.message}</p>
                   <p className="text-xs text-muted-foreground">
-                    {item.user.name} · {formatDateTime(item.createdAt)}
+                     {item.user?.name ?? "Keystone automation"} · {formatDateTime(item.createdAt)}
                   </p>
                 </li>
               ))
@@ -99,7 +99,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       </Card>
 
       <Card className="p-5">
-        <h2 className="font-serif text-xl">Buyer requirements</h2>
+         <div className="flex items-center justify-between gap-3"><h2 className="font-serif text-xl">Buyer requirements</h2><Link href={`/customers/${customer.id}/compare`} className="text-sm text-primary hover:underline">Compare shortlist</Link></div>
         {customer.requirements.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">Nothing captured. Add what they actually want to buy.</p>
         ) : (
@@ -147,7 +147,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               customer.opportunities.map((opp) => (
                 <li key={opp.id} className="flex items-center justify-between gap-3 py-3">
                   <div>
-                    <p className="font-medium">{opp.owner.name}</p>
+                     <Link href={`/pipeline/${opp.id}`} className="font-medium hover:underline">{opp.owner.name}</Link>
                     <p className="text-xs text-muted-foreground">{opp.value ? formatInr(opp.value) : "No value yet"}</p>
                   </div>
                   <StageBadge stage={opp.stage} />
